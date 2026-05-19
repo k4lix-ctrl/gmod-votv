@@ -1,0 +1,13 @@
+--@name Remote Flashlight GM-VOTV
+--@author Lawman
+--@client
+
+hook.add("Remote", "", function(sender, owner, payload) 
+        
+    if payload == (tostring(player():getSteamID())) then
+        
+        concmd( "" )
+        
+    end
+        
+end)
