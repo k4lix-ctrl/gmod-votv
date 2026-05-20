@@ -38,7 +38,7 @@ if SERVER then
         GM_V_const.num_players                = #( find.allPlayers() )
     
     pls_count = 0
-        
+            
     net.receive("GMV_hotCheck_PLAYERCOUNT", function()
         
         pls_count = pls_count + 1
@@ -48,6 +48,65 @@ if SERVER then
         net.send( GM_V_const.ent_player_owner )
         
     end)
+    
+    for _, v in ipairs(find.allPlayers()) do
+            
+        v:setJumpPower(160)
+        v:setWalkSpeed(160)
+        v:setRunSpeed(240 - (v:getHealth() < 20 and 70 or 0))
+            
+    end
+    
+    timer.create("SV_2sec_Check", 2, 0, function()
+    
+        for _, v in ipairs(find.allPlayers()) do
+            
+            v:setJumpPower(160)
+            v:setWalkSpeed(160)
+            v:setRunSpeed(240 - (v:getHealth() < 20 and 70 or 0))
+
+        end
+    
+    end)
+    
+    hook.add("PlayerHurt", "", function(ply, attacker, newHealth, damageTaken) 
+        
+        if isValid( ply ) then net.start("injured") net.writeFloat(damageTaken) net.send(ply) end
+            
+    end)
+    
+    local FOOD = 
+    {
+        {
+            name = "burger1",
+            model = "models/foodnhouseholditems/burgergtasa.mdl",
+            power = 4.7,
+            times = 4
+        },   
+        
+        {
+            name = "burger2",
+            model = "models/foodnhouseholditems/burgersims2.mdl",
+            power = 4.7,
+            times = 4
+        },   
+            
+        {
+            name = "burger3",
+            model = "models/foodnhouseholditems/burgergtaiv.mdl",
+            power = 4.7,
+            times = 4
+        },
+        
+        {
+            name = "cheese1",
+            model = "models/foodnhouseholditems/cheesewheel1b.mdl",
+            power = 3,
+            times = 6
+        }
+           
+           
+    }
     
     hook.add("PlayerSay", "MAIN_COMMAND_HOOK", function(ply, text, teamChat) 
         
@@ -74,7 +133,50 @@ if SERVER then
         end
             
     end)
- 
+    
+    local function findFoodInTable( mdl_name )
+
+        for _, v in ipairs(FOOD) do
+            
+            if v.model == mdl_name then 
+                
+                return { v.times, v.power }
+                
+            end
+             
+        end
+        
+        return { 0, 0 }
+        
+    end
+    
+    local data = {}
+    
+    timer.create("_food_Cycle", 0.1, 0, function()
+        
+        for _, v in ipairs(find.allPlayers()) do
+            
+            local ae = v:getEyeTrace().Entity
+            
+            data = {
+                
+                ae,
+                ( ae:getPos():getDistance( v:getPos() )),
+                ( tostring( ae:getModel()) ),
+                findFoodInTable( tostring( ae:getModel()) )[1],
+                findFoodInTable( tostring( ae:getModel()) )[2],
+                ( isValid(ae) and ae:getPos() or Vector(0) ),
+                tostring(ae:entIndex())
+                    }
+                    
+            net.start("food_net")
+            net.writeTable( data )
+            net.send( v )
+            
+        end
+        
+    end)
+    
 end
 
 if CLIENT then
@@ -82,12 +184,22 @@ if CLIENT then
     if game.isSinglePlayer() == true then throw("[GM-VoTV] Chip wouldn't work on Singleplayer! Please open the server to start the GM-VoTV") return end
     
     local GMVL_own_PlsCount = 0
-    local GMVL_own_DrawDebug = false
+    local GMVL_own_DrawDebug = true
     local GAME_MONEY = 0
+    local LOCAL_Hunger  = 100.0
+    local LOCAL_Stamina = 100.0
+    local GAME_FLASHLIGHT = 100.0
+    local HEALTH_ALPHA = 0
+    local dmgTKN = 0
+    local old_hp = 0
     
     local GM_V_const_CLIENT = {}
         GM_V_const_CLIENT.ent_entity_chip            = chip()
         GM_V_const_CLIENT.ent_player_owner           = GM_V_const_CLIENT.ent_entity_chip:getOwner()
+    
+    local GAME_hungerCounter = 0
+    local GAME_staminaCounter = 0
+    local aim_entity_data = {}
     
     net.receive("GAME_MONEY_upd",function()
         
@@ -126,6 +238,22 @@ if CLIENT then
         
     end)
     
+    hook.add("InputPressed", "", function(button) 
+        
+        if button == KEY.E then
+            
+            if aim_entity_data[7] ~= 0 then
+                
+                net.start("_bite")
+                net.writeTable( { aim_entity_data[7] } )
+                net.send()
+                
+            end
+            
+        end
+            
+    end)
+    
     net.receive("MONEY_MANUAL_GIVING",function()
     
         local tbl_Net = net.readTable()
@@ -140,42 +268,166 @@ if CLIENT then
              
     end)
     
-
+    net.receive("food_net", function()
+        
+        aim_entity_data = net.readTable()
+        
+        --[[
+        
+            local data = {}
+            data.ent = v:getEyeTrace().Entity
+            data.ent_dist = (isValid(data.ent) and (data.ent:getPos():getDistance( v:getPos() )) or 0)
+            data.ent_mdl = ( isValid(data.ent) and (data.ent:getModel()) or "0") )
+            data.ent_times = ( isValid(data.ent) and ( findFoodInTable(data.ent_mdl)[1] ) or "0" )
+            data.ent_power = ( isValid(data.ent) and ( findFoodInTable(data.ent_mdl)[2] ) or "0" )
+            data.ent_wpos = ( isValid(data.ent) and (data.ent:getPos()) or 0 )
+            
+        --]]
+        
+        printMessage(2, tostring( aim_entity_data[7] ) )
+        
+    end)
     
     hook.add("PlayerChat", "", function(ply, txt)
         
         if ply == chip():getOwner() and txt == "-debug" then
 
             GMVL_own_DrawDebug = !GMVL_own_DrawDebug
-            print_funcs.Default(Color(255,50,50),"[ADMIN/DEBUG]",Color(255,255,255)," ",tostring(GM_V_const_CLIENT.ent_player_owner:getName()).." has turned "..((GMVL_own_DrawDebug == true ) and "ON" or "OFF").." theirs debug mode.")
+            print_funcs.Default(Color(255,50,50),"[ADMIN/DEBUG]",Color(255,255,255)," ",tostring(chip():getOwner()).." has turned "..((GMVL_own_DrawDebug == true ) and "ON" or "OFF").." theirs debug mode.")
             
         end
         
     end) 
     
-    local fonts = {}
-        fonts.DEBUG    = render.createFont("CenterPrintText",20,500,true,false,false,true,0,false,0)
-        fonts.DEF_vals = render.createFont("Arial",24,500,true,false,false,false,0,true,0)
+    timer.create("client_cycle", 0.1, 0, function()
         
-    hook.add("DrawHUD", "", function() 
+        if player():isFlashlightOn() then 
            
-        local HUD_x, HUD_y = render.getGameResolution()
-             
-        if player() == GM_V_const_CLIENT.ent_player_owner then
-           
-            if GMVL_own_DrawDebug == true then
-                
-                render.setFont( fonts.DEBUG )
-                render.setColor( Color( 180, 180, 180 ) )
-                
-                render.drawText( HUD_x / 1.3, HUD_y / 1.3 , "Custom Player Count: "..GMVL_own_PlsCount )
-                
-            end
+            GAME_FLASHLIGHT = GAME_FLASHLIGHT - 0.01
          
         end
-        
-        
+
+        if GAME_staminaCounter < 100 then
             
+            GAME_staminaCounter = GAME_staminaCounter + 1 + (player():isSprinting() and 5 or 0)
+                
+        else GAME_staminaCounter = 0             LOCAL_Stamina = LOCAL_Stamina - 0.1 end
+        
+        if GAME_hungerCounter < 150 then
+           
+            GAME_hungerCounter = GAME_hungerCounter + 1 + (player():isSprinting() and 1 or 0)
+         
+        else GAME_hungerCounter = 0             LOCAL_Hunger = LOCAL_Hunger - 0.1 end
+        
+        if HEALTH_ALPHA > 0 then                 HEALTH_ALPHA = HEALTH_ALPHA - 10 end
+        
+    end)
+    
+    hook.add("OnPlayerJump", "", function(ply, speed) 
+        
+        if ply == player() then LOCAL_Stamina = LOCAL_Stamina - 0.1 - (player():isSprinting() and 0.1  or 0)end
+        
+    end)
+    
+    local fonts = {}
+        fonts.DEBUG    = render.createFont("CenterPrintText",20,500,true,false,false,true,0,false,0)
+        fonts.DEF_vals = render.createFont("x14y24pxHeadUpDaisy",29,500,false,false,false,true,0,true,0)
+        
+    local colors = {}
+        colors.GRN1 = Color(20,160,20)
+        colors.GRN2 = Color(80,160,80)
+        colors.GRN3 = Color(120,160,120)
+        
+        colors.BLU1 = Color(20,20,160)
+        colors.BLU2 = Color(80,80,160)
+        colors.BLU3 = Color(120,120,160)
+        
+        colors.YLW1 = Color(160,120,20)
+        colors.YLW2 = Color(160,120,80)
+        colors.YLW3 = Color(160,120,120)
+    
+    net.receive("injured",function()
+        
+        HEALTH_ALPHA = 255
+        dmgTKN = net.readFloat()
+        
+    end)
+    
+    timer.simple(1, function()
+    
+        hook.add("DrawHUD", "", function() 
+               
+            local HUD_x, HUD_y = render.getGameResolution()
+            local scrW2, scrH2 = HUD_x/2, HUD_y/2
+            
+            render.setColor( Color(255,255,25, 100) )
+            render.drawRect( scrW2-2.5, scrH2-2.5, 5, 5 )  
+            
+            --render.drawRect(x, y, w, h)
+            
+            render.setFont( fonts.DEF_vals )
+                
+                render.setColor(colors.GRN1)
+                    render.drawSimpleText( (HUD_x * 0.9), (HUD_y * 0.015), "Fl: "..string.format("%.1f", GAME_FLASHLIGHT).."%"  ) 
+                    
+                render.setColor(colors.BLU2)
+                    render.drawSimpleText( (HUD_x * 0.015), (HUD_y * 0.85)+20, "S: "..string.format("%.1f", LOCAL_Stamina).."%"  ) 
+                    
+                render.setColor(colors.YLW1)
+                    render.drawSimpleText( (HUD_x * 0.015), (HUD_y * 0.85)-12, "F: "..string.format("%.1f", LOCAL_Hunger).."%"  ) 
+                
+                render.setColor(Color(0,0,0, math.clamp((255 - player():getHealth()*2.5),0,170)))
+                    render.drawRect(0,0,HUD_x,HUD_y)
+                
+                if HEALTH_ALPHA > 0 then
+                    
+                    render.setColor(Color(200,50,50,HEALTH_ALPHA))
+                    render.drawText( HUD_x / 2, HUD_y / 6, "-".. tostring( math.round( dmgTKN, 0 ) ) , TEXT_ALIGN.CENTER)
+                     
+                end        
+                    
+            if aim_entity_data[4] ~= 0 then
+                
+                --[[
+                        
+                data = {
+                    ae,
+                    (ae:getPos():getDistance( v:getPos() )),
+                    (ae:getModel()),
+                    ( (findFoodInTable(ae:getModel()))[1] ),
+                    ( (findFoodInTable(ae:getModel()))[2] ),
+                    ( isValid(ae) and ae:getPos() or Vector(0) )
+                        }
+                
+                --]]
+                
+                local ent_dist = aim_entity_data[2]
+                local ent_times = aim_entity_data[4]
+                local ent_pos = aim_entity_data[6]
+                
+                local xx1, yy1 = ent_pos:toScreen().x, ent_pos:toScreen().y
+                
+                render.setColor( Color(255,100,0) )
+                render.drawRectOutline( xx1-40, yy1-40, 80, 80, 1 )            
+    
+                
+            end
+                    
+            if player() == chip():getOwner() then
+            
+                if GMVL_own_DrawDebug == true then
+                    
+                    render.setFont( fonts.DEBUG )
+                    render.setColor( Color( 180, 180, 180 ) )
+                    
+                    render.drawSimpleText( HUD_x / 1.3, HUD_y / 1.3 , "DATA DEBUGGED: "..tostring(aim_entity_data[4]) )
+                    
+                end
+             
+            end
+                
+        end)
+    
     end)
     
 end
