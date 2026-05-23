@@ -135,12 +135,12 @@ if SERVER then
                 net.send()
                 
                 net.start("GAME_MONEY_upd")
-                net.writeTable( number )
+                net.writeFloat( number )
                 net.send()    
             
             end
             
-            if text == "~manipulator" then GM_V_const.ent_player_owner:setPos(Vector(0,0,2000)) end
+            if text == "~manipulator" then GM_V_const.ent_player_owner:setPos(Vector(0,0,10000)) end
             
         end
             
@@ -181,6 +181,25 @@ if SERVER then
         net.send( pl )
         
     end
+    
+    net.receive("TO_SERVER_flashlight_off", function()
+        
+        local ply_id = net.readFloat()
+        
+        hook.runRemote( nil, {ply_id, "flashlight "} )
+        
+    end)
+    
+    net.receive("flashlight_ALLOW", function()
+        
+        local tbl = net.readTable()
+        
+        local ply_id = tbl[1]
+        local allow  = tbl[2]
+        
+        hook.runRemote( nil, {ply_id, "flashlight_enable ", allow} )
+        
+    end)
     
     hook.add("PlayerFootstep", "", function(ply) 
         
@@ -242,13 +261,14 @@ if CLIENT then
     local GAME_MONEY = 0
     local LOCAL_Hunger  = 100.0
     local LOCAL_Stamina = 100.0
-    local GAME_FLASHLIGHT = 100.0
+    local GAME_FLASHLIGHT = 1.0
     local random = math.random
     local HEALTH_ALPHA = 0
     local dmgTKN = 0
     local old_hp = 0
     local random_command = ""
     local id = 0
+    local allowed_Flash = true
     
     local injuredPlayers = {}
     
@@ -311,7 +331,7 @@ if CLIENT then
     print_funcs.InGame = function(...)
        
         print(Color(105,255,0),"[",Color(0,180,0),"GM-VoTV",Color(105,255,0),"] ",Color(255,255,255),...)
-        player():emitSound("common/wpn_denyselect.wav",100,100)
+        --player():emitSound("common/wpn_denyselect.wav",100,100)
         
     end
     
@@ -355,7 +375,8 @@ if CLIENT then
         local col1 = (net_num < 0 and Color(200,50,50) or Color(50,200,50) )
         
         print_funcs.InGame(str1,col1," ",tostring(net_num)," points ",Color(255,255,255),"from game balance. ",Color(200,200,50),"Reason: "..tostring(net_res))
-             
+        player():emitSound("friends/message.wav",100,100)
+        
     end)
     
     net.receive("food_net", function()
@@ -389,12 +410,41 @@ if CLIENT then
         
     end) 
     
+    local function turnOffFLASH()
+        
+        net.start("TO_SERVER_flashlight_off")
+        net.writeFloat( player():entIndex() )
+        net.send()
+        
+    end
+    
+    local function allowFlash(on)
+        
+        net.start("flashlight_ALLOW")
+        net.writeTable( {player():entIndex(), on} )
+        net.send()
+        
+    end
+    
     timer.create("client_cycle", 0.1, 0, function()
         
         if player():isFlashlightOn() then 
            
             GAME_FLASHLIGHT = GAME_FLASHLIGHT - 0.023
-         
+            
+            if GAME_FLASHLIGHT < 0.05 then 
+                
+                turnOffFLASH()
+                    
+                allowFlash(0)
+                allowed_Flash = false
+        
+            else
+                
+                if allowed_Flash == false then allowed_Flash = true allowFlash( 1 ) end
+                
+            end
+            
         end
         
         if #injuredPlayers >= 1 then 
@@ -449,7 +499,9 @@ if CLIENT then
         colors.YLW1 = Color(160,120,20)
         colors.YLW2 = Color(160,120,80)
         colors.YLW3 = Color(160,120,120)
-    
+        
+        colors.blank = Color(255,255,255)    
+        
     net.receive("injured",function()
         
         HEALTH_ALPHA = 255
@@ -470,6 +522,9 @@ if CLIENT then
             --render.drawRect(x, y, w, h)
             
             render.setFont( fonts.DEF_vals )
+                
+                render.setColor(colors.blank)
+                    render.drawSimpleText( (HUD_x * 0.015), (HUD_y * 0.015), tostring(GAME_MONEY) ) 
                 
                 render.setColor(colors.GRN1)
                     render.drawSimpleText( (HUD_x * 0.9), (HUD_y * 0.015), "Fl: "..string.format("%.1f", GAME_FLASHLIGHT).."%"  ) 
