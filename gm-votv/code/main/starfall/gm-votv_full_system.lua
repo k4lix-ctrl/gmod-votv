@@ -25,7 +25,16 @@
         
 --]]
 
-
+    local b64d = http.base64Decode
+    
+    local NotifyMSGs =
+    {
+        NOT_HUNGRY = b64d("0K8g0L3QtSDRhdC+0YfRgyDQtdGB0YLRjA=="),
+        NOT_TIRED = b64d("0K8g0L3QtSDRhdC+0YfRgyDRgdC/0LDRgtGM"),
+        TOO_TIRED_RUN = b64d("0K8g0YHQu9C40YjQutC+0Lwg0YPRgdGC0LDQuywg0YfRgtC+0LHRiyDQsdC10LbQsNGC0Yw="),
+        TOO_TIRED_INJ = b64d("0K8g0YHQu9C40YjQutC+0Lwg0YDQsNC90LXQvSwg0YfRgtC+0LHRiyDQsdC10LbQsNGC0Yw="),
+        DONT_WANT_TO = b64d("0K8g0L3QtSDRhdC+0YfRgyDRjdGC0L4g0YHQtdC50YfQsNGB")
+    }
 
 if SERVER then
     
@@ -97,17 +106,6 @@ if SERVER then
         if isValid( ply ) then net.start("injured") net.writeFloat(damageTaken) net.send(ply) end
             
     end)
-    
-    local b64d = http.base64Decode
-    
-    local NotifyMSGs =
-    {
-        NOT_HUNGRY = b64d("0K8g0L3QtSDRhdC+0YfRgyDQtdGB0YLRjA=="),
-        NOT_TIRED = b64d("0K8g0L3QtSDRhdC+0YfRgyDRgdC/0LDRgtGM"),
-        TOO_TIRED_RUN = b64d("0K8g0YHQu9C40YjQutC+0Lwg0YPRgdGC0LDQuywg0YfRgtC+0LHRiyDQsdC10LbQsNGC0Yw="),
-        TOO_TIRED_INJ = b64d("0K8g0YHQu9C40YjQutC+0Lwg0YDQsNC90LXQvSwg0YfRgtC+0LHRiyDQsdC10LbQsNGC0Yw="),
-        DONT_WANT_TO = b64d("0K8g0L3QtSDRhdC+0YfRgyDRjdGC0L4g0YHQtdC50YfQsNGB")
-    }
     
     local FOOD = 
     {
@@ -534,18 +532,8 @@ if CLIENT then
     local id = 0
     local allowed_Flash = true
     local use_type = "hold"
-    
-    local b64d = http.base64Decode
-    
     local injuredPlayers = {}
-    local NotifyMSGs =
-    {
-        NOT_HUNGRY = b64d("0K8g0L3QtSDRhdC+0YfRgyDQtdGB0YLRjA=="),
-        NOT_TIRED = b64d("0K8g0L3QtSDRhdC+0YfRgyDRgdC/0LDRgtGM"),
-        TOO_TIRED_RUN = b64d("0K8g0YHQu9C40YjQutC+0Lwg0YPRgdGC0LDQuywg0YfRgtC+0LHRiyDQsdC10LbQsNGC0Yw="),
-        TOO_TIRED_INJ = b64d("0K8g0YHQu9C40YjQutC+0Lwg0YDQsNC90LXQvSwg0YfRgtC+0LHRiyDQsdC10LbQsNGC0Yw=") 
-    }
-    
+
     net.receive("PLAYER_INJURED", function()
         
         local vec = net.readVector()
